@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Rimozione Sfondo(green screen)</title>
-<meta name="description" content="Clicca un punto: la macchia verde si espande finché il gradiente locale (forza resistente) è sotto la Forza scelta. Poi puoi rimuovere i pixel verdi come sfondo e scaricare il PNG. 100% client-side.">
+<meta name="description" content="Clicca o trascina: la macchia verde si espande finché il gradiente locale (forza resistente) è sotto la Forza scelta. Poi puoi rimuovere i pixel verdi come sfondo e scaricare il PNG. 100% client-side.">
 <style>
   :root{ --bg1:#0f1226; --bg2:#0b0e1a; --muted:#8e95ad; --brand:#6a8dff; --brand2:#9d78ff;
          --card:#171a33; --radius:18px; --shadow:0 10px 25px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.2); }
@@ -33,19 +33,17 @@
   .dropzone input{display:none}
   .dz-cta{display:flex;flex-direction:column;gap:10px;align-items:center}
   .btn{appearance:none;border:0;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#0b0e1a;font-weight:700;padding:12px 16px;border-radius:12px;cursor:pointer;box-shadow:var(--shadow)}
-  .btn.secondary{background:transparent;color:#e7e9f3;border:1px solid rgba(255,255,255,.16)}
+  .btn.secondary{background:transparent;color:#e7e9f3;border:1px solid rgba(255,255,white,.16)}
   .btn[disabled]{opacity:.9;filter:grayscale(40%);cursor:not-allowed}
   .controls{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:0 16px 16px 16px}
-  .range{appearance:none;background:rgba(255,255,255,.04);color:#e7e9f3;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px 12px}
   .muted-sm{color:var(--muted);font-size:12px}
   .preview{margin:0 16px 16px 16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden;background:#0b0e1a}
   .preview-inner{max-height:560px;overflow:auto;display:grid;place-items:center;padding:12px}
   .checker{background-image:linear-gradient(45deg,#999 25%,transparent 25%),linear-gradient(-45deg,#999 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#999 75%),linear-gradient(-45deg,transparent 75%,#999 75%);
            background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
   .preview-inner{max-width:100%}
-  canvas{display:block; max-width:100%; height:auto}
+  canvas{display:block; max-width:100%; height:auto; cursor: crosshair;}
 
-  /* Barra comandi flottante sempre visibile */
   .controls-float{
     position: fixed;
     right: 16px;
@@ -64,28 +62,19 @@
 
   .toast{position:fixed;z-index:3200;right:18px;bottom:72px;background:#121426;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow);opacity:0;transform:translateY(10px);transition:.2s ease}
   .toast.show{opacity:1;transform:translateY(0)}
-  
-  
-.splash-logo{
-  width: 96px;           /* adatta se vuoi più grande/piccolo */
-  height: 96px;
-  border-radius: 16px;   /* se il tuo logo è quadrato e vuoi angoli soft */
-  box-shadow: var(--shadow);
-  object-fit: contain;   /* mantiene proporzioni */
-  background: transparent;
-  /* se serve più contrasto sul fondo scuro: */
-  filter: drop-shadow(0 2px 8px rgba(0,0,0,.35));
-}
 
-/* (facoltativo) piccola animazione “pop” all’ingresso */
-#splash .splash-logo{
-  transform: scale(.98);
-  animation: logoPop .6s ease .2s forwards;
-}
-@keyframes logoPop{
-  to { transform: scale(1); }
-}
-  
+  .num {appearance:textfield; background:rgba(255,255,255,.04); color:#e7e9f3; border:1px solid rgba(255,255,255,.14); border-radius:10px; padding:10px 12px; width:86px; font-weight:700;}
+  .num::-webkit-outer-spin-button,.num::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
+
+  .splash-logo{
+    width:96px;height:96px;border-radius:16px;box-shadow:var(--shadow);object-fit:contain;background:transparent;filter:drop-shadow(0 2px 8px rgba(0,0,0,.35));
+  }
+  #splash .splash-logo{ transform: scale(.98); animation: logoPop .6s ease .2s forwards; }
+  @keyframes logoPop{ to { transform: scale(1); } }
+
+  @keyframes fadeOut{to{opacity:0;visibility:hidden}}
+  @keyframes floatBg{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-2%,-2%,0) scale(1.03)}}
+  @media (prefers-reduced-motion: reduce){ #splash{animation:none} .splash-bg{animation:none} }
 </style>
 </head>
 <body>
@@ -100,13 +89,13 @@
         </div>
         <div>
           <h1>Rimozione sfondo — DP Web & Design</h1>
-          <div class="muted">Clicca sull’immagine. La macchia si espande finché la resistenza (gradiente) ≤ Forza.</div>
+          <div class="muted">Clicca o trascina sull’immagine. La macchia si espande finché la resistenza (gradiente) ≤ Forza.</div>
         </div>
       </div>
     </header>
 
-    <!-- Barra flottante fissa -->
     <div class="controls-float">
+      <button class="btn secondary" id="btnUndo" disabled>Annulla ultimo (Ctrl+Z)</button>
       <button class="btn secondary" id="btnRemoveGreen" disabled>Rimuovi verde</button>
       <button class="btn secondary" id="btnDownload" disabled>Scarica PNG</button>
       <button class="btn secondary" id="btnReset">Ripristina</button>
@@ -116,7 +105,7 @@
       <div class="top">
         <span class="badge">1</span>
         <div>
-          <div style="font-weight:700">Carica o trascina una foto, poi CLICCA per espandere</div>
+          <div style="font-weight:700">Carica o trascina una foto, poi CLICCA o trascina per espandere</div>
           <div class="muted-sm">JPG, PNG, WebP • 100% offline</div>
         </div>
       </div>
@@ -124,7 +113,7 @@
       <div class="dropzone" id="dropzone" aria-live="polite">
         <div class="dz-cta">
           <div class="muted">Trascina qui l’immagine</div>
-		  <div class="muted"> </div>
+          <div class="muted"> </div>
           <div><label class="btn" for="fileInput">Scegli file</label><input id="fileInput" type="file" accept="image/*"/></div>
         </div>
       </div>
@@ -132,16 +121,14 @@
       <div class="controls">
         <span class="badge">2</span>
         <label style="display:flex;align-items:center;gap:10px">
-          <span class="muted-sm">Forza</span>
-          <input id="force" class="range" type="range" min="0" max="25" value="10" />
-          <strong id="forceVal">10</strong><span class="muted-sm">/255</span>
+          <span class="muted-sm">Forza (0–255)</span>
+          <input id="force" class="num" type="number" inputmode="numeric" min="0" max="255" value="10" />
         </label>
         <label style="display:flex;align-items:center;gap:10px">
-          <span class="muted-sm">Raggio max</span>
-          <input id="maxr" class="range" type="range" min="0" max="500" value="20" />
-          <strong id="maxrVal">20</strong><span class="muted-sm"> passi</span>
+          <span class="muted-sm">Raggio max (px, 0=∞)</span>
+          <input id="maxr" class="num" type="number" inputmode="numeric" min="0" max="5000" value="20" />
         </label>
-        <span class="muted-sm">Tip: valori bassi seguono i bordi, alti “sfondano”.</span>
+        <span class="muted-sm">Tip: valori bassi seguono i bordi, alti “sfondano”. Rotellina disattivata sugli input.</span>
       </div>
 
       <div class="preview checker">
@@ -152,7 +139,6 @@
     </section>
   </div>
 
-  <!-- Splash DP Web & Design -->
   <div id="splash"
        aria-hidden="true"
        style="position:fixed;inset:0;z-index:4000;display:grid;place-items:center;background:#0f1226;color:#fff;
@@ -163,22 +149,17 @@
                  radial-gradient(900px 500px at 20% 120%, #0ea5e9 0%, transparent 55%);
       filter:blur(30px);opacity:.85;animation:floatBg 8s ease-in-out infinite alternate;"></div>
     <div style="position:relative;display:grid;place-items:center;gap:12px;text-align:center;padding:16px 22px">
-	<img id="splashLogo"
-		 class="splash-logo"
-		 src="assets/logo.png"
-		 alt="DP Web & Design"
-		 width="96" height="96"
-		 decoding="async"
-		 fetchpriority="high" />
-   	  <div>DP Web & Design</div>
+      <img id="splashLogo"
+           class="splash-logo"
+           src="assets/logo.png"
+           alt="DP Web & Design"
+           width="96" height="96"
+           decoding="async"
+           fetchpriority="high" />
+      <div>DP Web & Design</div>
       <button id="skipSplash" class="btn secondary" style="padding:10px 14px;border-radius:12px;cursor:pointer">Entra subito</button>
     </div>
   </div>
-  <style>
-    @keyframes fadeOut{to{opacity:0;visibility:hidden}}
-    @keyframes floatBg{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-2%,-2%,0) scale(1.03)}}
-    @media (prefers-reduced-motion: reduce){ #splash{animation:none} .splash-bg{animation:none} }
-  </style>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
@@ -203,16 +184,33 @@ function setupCanvasHiDPI(cnv, cssW, cssH){
 }
 
 /* ===== Stato & Riferimenti ===== */
-let off=null, offCtx=null;         // canvas offscreen “alla scala giusta”
-let lum=null, grad=null;           // luminanza Uint8, resistenza (gradiente) Uint8 0..255
-let mask=null;                     // macchia 0/1
+let off=null, offCtx=null;
+let lum=null, grad=null;
+let mask=null;
+let maskHistory=[];
 const dropzone=$('#dropzone'); const fileInput=$('#fileInput');
-const force=$('#force'), forceVal=$('#forceVal');
-const maxr=$('#maxr'), maxrVal=$('#maxrVal');
+const force=$('#force');
+const maxr=$('#maxr');
+const btnUndo=$('#btnUndo');
 const btnRemoveGreen=$('#btnRemoveGreen');
 const btnDownload=$('#btnDownload');
 const btnReset=$('#btnReset');
 const cnvOut=$('#cnvOut'); const octx=cnvOut.getContext('2d',{willReadFrequently:true});
+
+/* ===== Blocca rotellina sugli input numerici ===== */
+for (const n of [force,maxr]) {
+  n.addEventListener('wheel', e => { if (document.activeElement === n) { e.preventDefault(); n.blur(); } }, {passive:false});
+  n.addEventListener('change', ()=> clampNumber(n));
+  n.addEventListener('blur', ()=> clampNumber(n));
+}
+function clampNumber(el){
+  const min = parseInt(el.min ?? '-2147483648',10);
+  const max = parseInt(el.max ?? '2147483647',10);
+  let v = parseInt(el.value||'0',10);
+  if (Number.isNaN(v)) v=min;
+  v = Math.min(max, Math.max(min, v));
+  el.value = String(v);
+}
 
 /* ===== Upload ===== */
 dropzone.addEventListener('dragover',e=>{e.preventDefault();dropzone.classList.add('drag')});
@@ -224,15 +222,13 @@ document.addEventListener('paste',e=>{
 });
 
 btnReset?.addEventListener('click',()=>{ 
-  off=null; offCtx=null; lum=null; grad=null; mask=null; 
-  cnvOut.width=cnvOut.height=0; fileInput.value=''; 
+  off=null; offCtx=null; lum=null; grad=null; mask=null; maskHistory.length=0;
+  cnvOut.width=cnvOut.height=0; fileInput.value='';
   if(btnRemoveGreen) btnRemoveGreen.disabled=true; 
   if(btnDownload) btnDownload.disabled=true;
+  if(btnUndo) btnUndo.disabled=true;
   showToast('Ripristinato'); 
 });
-
-force.addEventListener('input',()=>{ forceVal.textContent=force.value; });
-maxr.addEventListener('input',()=>{ maxrVal.textContent=maxr.value; });
 
 /* ===== Core ===== */
 function loadImage(file){
@@ -240,41 +236,36 @@ function loadImage(file){
   const url=URL.createObjectURL(file);
   const img=new Image(); img.decoding='async';
   img.onload=()=>{
-    // misura CSS entro 900x560
     const maxW=900, maxH=560;
     const r=Math.min(maxW/img.width, maxH/img.height, 1);
     const cssW=Math.round(img.width*r), cssH=Math.round(img.height*r);
 
-    // canvas output
     setupCanvasHiDPI(cnvOut, cssW, cssH);
 
-    // offscreen per pixel “alla scala giusta”
     off=document.createElement('canvas'); offCtx=setupCanvasHiDPI(off, cssW, cssH);
     offCtx.drawImage(img,0,0,cssW,cssH);
 
-    // luminanza Uint8
     const data=offCtx.getImageData(0,0,off.width,off.height).data;
     const w=off.width,h=off.height;
     lum=new Uint8ClampedArray(w*h);
     for(let i=0,j=0; j<lum.length; i+=4,j++){
       lum[j] = Math.round(0.299*data[i] + 0.587*data[i+1] + 0.114*data[i+2]);
     }
-
-    // resistenza = gradiente (Sobel) normalizzato ~0..255
     grad = sobelMagnitude(lum, w, h);
 
-    // disegna base e azzera macchia
     mask = new Uint8Array(w*h);
-    if(btnRemoveGreen) btnRemoveGreen.disabled = true; // finché non c'è verde
-    if(btnDownload) btnDownload.disabled = false;      // appena c'è immagine, si può scaricare
+    maskHistory.length=0;
+    if(btnRemoveGreen) btnRemoveGreen.disabled = true;
+    if(btnDownload) btnDownload.disabled = false;
+    if(btnUndo) btnUndo.disabled = true;
     redraw();
-    showToast(`Immagine ${img.width}×${img.height} caricata • Clicca per espandere`);
+    showToast(`Immagine ${img.width}×${img.height} caricata • Clic/drag per espandere`);
   };
   img.onerror=()=>showToast('Impossibile caricare l’immagine');
   img.src=url;
 }
 
-/* Sobel grad magnitude → Uint8 0..255 (scala euristica) */
+/* Sobel grad magnitude → Uint8 0..255 */
 function sobelMagnitude(gray, w, h){
   const out=new Uint8ClampedArray(w*h);
   const idx=(x,y)=>y*w+x;
@@ -287,57 +278,76 @@ function sobelMagnitude(gray, w, h){
       const g=gray[idx(xm1,yp1)], h1=gray[idx(x,yp1)], i=gray[idx(xp1,yp1)];
       const gx = (-a + c) + (-2*d + 2*f) + (-g + i);
       const gy = (-a -2*b -c) + (g + 2*h1 + i);
-      const mag = Math.hypot(gx,gy)/4;  // scala euristica per stare ~0..255
+      const mag = Math.hypot(gx,gy)/4;
       out[idx(x,y)] = mag>255?255:mag|0;
     }
   }
   return out;
 }
 
-/* Click → flood a soglia sulla resistenza (grad), limitato da R max */
-cnvOut.addEventListener('click', (ev)=>{
-  if(!off || !grad) return;
-  const rect=cnvOut.getBoundingClientRect();
-  const x = Math.floor((ev.clientX - rect.left) * (cnvOut.width / rect.width));
-  const y = Math.floor((ev.clientY - rect.top)  * (cnvOut.height/ rect.height));
-  regionGrow(x,y);
-});
+/* === UNDO === */
+document.addEventListener('keydown', (e)=>{ if((e.ctrlKey || e.metaKey) && (e.key==='z' || e.key==='Z')){ e.preventDefault(); undoLast(); }});
+btnUndo?.addEventListener('click', undoLast);
+function pushHistory(){ if(!mask) return; maskHistory.push(mask.slice()); if(btnUndo) btnUndo.disabled = true===false || maskHistory.length>0; const N=50; if(maskHistory.length>N) maskHistory.splice(0, maskHistory.length-N); }
+function undoLast(){
+  if(!maskHistory.length){ showToast('Niente da annullare'); return; }
+  mask = maskHistory.pop();
+  if(btnUndo) btnUndo.disabled = maskHistory.length===0;
+  if(btnRemoveGreen){
+    let has=false; for(let i=0;i<mask.length;i++){ if(mask[i]){has=true;break;} }
+    btnRemoveGreen.disabled = !has;
+  }
+  redraw();
+  showToast('Ultima azione annullata');
+}
 
-function regionGrow(sx,sy){
+/* ===== Espansione circolare (region grow) =====
+   - Rmax espresso in pixel (raggio)
+   - usa distanza euclidea dal seed per avere macchia perfettamente circolare
+*/
+function regionGrow(sx,sy, doHistory=true, silent=false){
   const w=off.width,h=off.height;
-  if(sx<0||sy<0||sx>=w||sy>=h) return;
+  if(sx<0||sy<0||sx>=w||sy>=h) return false;
 
-  const F = parseInt(force.value,10);     // Forza utente
-  const Rmax = parseInt(maxr.value,10);   // passi max (0 = illimitato)
+  const F = Math.min(255, Math.max(0, parseInt(force.value||'0',10)));
+  const Rmax = Math.max(0, parseInt(maxr.value||'0',10));
+  const R2 = Rmax>0 ? Rmax*Rmax : 0;
+
   const visited = new Uint8Array(w*h);
-  const dist = new Uint16Array(w*h); // passi Manhattan
   const qx=new Int32Array(w*h), qy=new Int32Array(w*h); let qs=0, qe=0;
 
-  const push=(x,y,d)=>{ const i=y*w+x; visited[i]=1; dist[i]=d; qx[qe]=x; qy[qe]=y; qe++; };
+  const idx=(x,y)=>y*w+x;
+  const push=(x,y)=>{ const i=idx(x,y); visited[i]=1; qx[qe]=x; qy[qe]=y; qe++; };
 
-  // condizione iniziale: accetto il seed se resistenza ≤ F (altrimenti nulla)
-  if(grad[sy*w+sx] > F){ showToast('Seed troppo “duro”: aumenta Forza'); return; }
-  push(sx,sy,0);
+  if(grad[idx(sx,sy)] > F){ if(!silent) showToast('Seed troppo “duro”: aumenta Forza'); return false; }
+  push(sx,sy);
 
-  // BFS 8-neigh con soglia locale sulla resistenza
+  const seedX=sx, seedY=sy;
   const N8=[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[1,1],[-1,1]];
   while(qs<qe){
-    const x=qx[qs], y=qy[qs], d=dist[y*w+x]; qs++;
+    const x=qx[qs], y=qy[qs]; qs++;
     for(const [dx,dy] of N8){
       const nx=x+dx, ny=y+dy;
       if(nx<0||ny<0||nx>=w||ny>=h) continue;
-      const ni=ny*w+nx;
+      const ni=idx(nx,ny);
       if(visited[ni]) continue;
-      const nd = d + 1;
-      if(Rmax>0 && nd>Rmax) continue;
-      // regola di accettazione: resistenza locale <= Forza
+
+      if(Rmax>0){
+        const ddx=nx-seedX, ddy=ny-seedY;
+        if(ddx*ddx + ddy*ddy > R2) continue; // vincolo circolare
+      }
       if(grad[ni] <= F){
-        push(nx,ny,nd);
+        push(nx,ny);
       }
     }
   }
 
-  // unisci alla maschera globale (nuova “pennellata”)
+  // verifica se è cresciuta
+  let grown=false;
+  for(let i=0;i<visited.length;i++){ if(visited[i] && !mask[i]) { grown=true; break; } }
+  if(!grown) return false;
+
+  if(doHistory) pushHistory();
   for(let i=0;i<mask.length;i++) if(visited[i]) mask[i]=1;
 
   if(btnRemoveGreen){
@@ -345,9 +355,56 @@ function regionGrow(sx,sy){
     btnRemoveGreen.disabled = !has;
   }
   redraw();
+  return true;
 }
 
-/* Elimina i pixel verdi (mask=1) rendendoli trasparenti nell'immagine */
+/* ======= Interazione: click + drag ======= */
+function clientToCanvasXY(clientX, clientY){
+  const rect=cnvOut.getBoundingClientRect();
+  const x = Math.floor((clientX - rect.left) * (cnvOut.width / rect.width));
+  const y = Math.floor((clientY - rect.top)  * (cnvOut.height/ rect.height));
+  return {x,y};
+}
+
+cnvOut.addEventListener('click', (ev)=>{ if(!off || !grad) return; const {x,y}=clientToCanvasXY(ev.clientX, ev.clientY); regionGrow(x,y,true,false); });
+
+let dragging=false, lastX=0, lastY=0;
+const STEP_PX = 4;
+
+cnvOut.addEventListener('pointerdown', (ev)=>{
+  if(!off || !grad) return;
+  cnvOut.setPointerCapture(ev.pointerId);
+  const {x,y}=clientToCanvasXY(ev.clientX, ev.clientY);
+  dragging=true; lastX=x; lastY=y;
+  pushHistory();
+  regionGrow(x,y,false,true);
+});
+
+cnvOut.addEventListener('pointermove', (ev)=>{
+  if(!dragging) return;
+  const {x,y}=clientToCanvasXY(ev.clientX, ev.clientY);
+  const dx=x-lastX, dy=y-lastY; const len=Math.hypot(dx,dy);
+  const n = Math.max(1, Math.ceil(len/STEP_PX));
+  for(let i=1;i<=n;i++){
+    const t=i/n;
+    const px=Math.round(lastX + dx*t);
+    const py=Math.round(lastY + dy*t);
+    regionGrow(px,py,false,true);
+  }
+  lastX=x; lastY=y;
+});
+
+function endDrag(ev){
+  if(!dragging) return;
+  dragging=false;
+  showToast('Pennellata applicata');
+  try{ cnvOut.releasePointerCapture(ev.pointerId); }catch{}
+}
+cnvOut.addEventListener('pointerup', endDrag);
+cnvOut.addEventListener('pointercancel', endDrag);
+cnvOut.addEventListener('pointerleave', endDrag);
+
+/* ===== Rimozione e Download ===== */
 btnRemoveGreen?.addEventListener('click', removeGreenAsBackground);
 
 function removeGreenAsBackground(){
@@ -358,18 +415,19 @@ function removeGreenAsBackground(){
 
   let any = false;
   for(let j=0,k=0; j<mask.length; j++, k+=4){
-    if(mask[j]){ d[k+3] = 0; any = true; }  // alpha = 0 → trasparente
+    if(mask[j]){ d[k+3] = 0; any = true; }
   }
   if(!any){ showToast('Nessun pixel verde da eliminare'); return; }
 
   offCtx.putImageData(img,0,0);
   mask.fill(0);
+  maskHistory.length=0;
   if(btnRemoveGreen) btnRemoveGreen.disabled = true;
+  if(btnUndo) btnUndo.disabled = true;
   redraw();
   showToast('Sfondo verde eliminato (trasparente)');
 }
 
-/* === NUOVO: Scarica il PNG esattamente come lo vedi (con trasparenza) === */
 btnDownload?.addEventListener('click', ()=>{
   if(!cnvOut.width || !cnvOut.height){ showToast('Nulla da scaricare'); return; }
   const url = cnvOut.toDataURL('image/png');
@@ -387,13 +445,11 @@ function redraw(){
   if(!off) return;
   const w = off.width, h = off.height;
 
-  // base
   octx.setTransform(1,0,0,1,0,0);
   octx.clearRect(0,0,cnvOut.width,cnvOut.height);
   octx.drawImage(off, 0, 0);
   if(!mask) return;
 
-  // layer RGBA verde per i pixel mask=1
   const layer = document.createElement('canvas'); 
   layer.width = w; layer.height = h;
   const lctx = layer.getContext('2d', { willReadFrequently:true });
@@ -403,7 +459,7 @@ function redraw(){
   let hasGreen=false;
   for(let j=0, k=0; j<mask.length; j++, k+=4){
     if(mask[j]){
-      a[k]=16; a[k+1]=255; a[k+2]=32; a[k+3]=220; // verde key
+      a[k]=16; a[k+1]=255; a[k+2]=32; a[k+3]=220;
       hasGreen=true;
     } else {
       a[k]=a[k+1]=a[k+2]=0; a[k+3]=0;
@@ -415,11 +471,8 @@ function redraw(){
   octx.drawImage(layer, 0, 0);
 
   if(btnRemoveGreen) btnRemoveGreen.disabled = !hasGreen;
-  if(btnDownload) btnDownload.disabled = !off; // se c'è immagine si può scaricare
+  if(btnDownload) btnDownload.disabled = !off;
 }
 </script>
-
-<!-- Toast -->
-<div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
