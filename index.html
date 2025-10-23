@@ -75,18 +75,28 @@
   @keyframes fadeOut{to{opacity:0;visibility:hidden}}
   @keyframes floatBg{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-2%,-2%,0) scale(1.03)}}
   @media (prefers-reduced-motion: reduce){ #splash{animation:none} .splash-bg{animation:none} }
+  .logo{
+  width:42px;height:42px;display:grid;place-items:center;
+  border-radius:12px;background:linear-gradient(135deg,var(--brand),var(--brand2));
+  box-shadow:var(--shadow); overflow:hidden; /* importante per ritaglio pulito */
+}
+.logo picture, .logo img{ width:100%; height:100%; display:block; object-fit:contain; }
+
 </style>
 </head>
 <body>
   <div class="app">
     <header>
       <div class="title">
-        <div class="logo" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="3" y="3" width="18" height="18" rx="5" fill="white"/>
-          <path d="M7 16 L10 8 L13 16 Z" fill="#6a8dff"/>
-          <circle cx="16" cy="10" r="3" fill="#9d78ff"/></svg>
-        </div>
+		<!-- LOGO (sostituisce l'SVG inline) -->
+		<a href="#" class="logo" aria-label="DP Web & Design">
+		  <picture>
+			<source srcset="assets/logo.png" type="image/svg+xml" />
+			<source srcset="assets/logo@2x.png 2x, assets/logo.png 1x" type="image/png" />
+			<img class="logo-img" src="assets/logo.png" alt="DP Web & Design" width="42" height="42" loading="eager" decoding="async" />
+		  </picture>
+		</a>
+
         <div>
           <h1>Rimozione sfondo — DP Web & Design</h1>
           <div class="muted">Clicca o trascina sull’immagine. La macchia si espande finché la resistenza (gradiente) ≤ Forza.</div>
@@ -476,3 +486,4 @@ function redraw(){
 </script>
 </body>
 </html>
+
